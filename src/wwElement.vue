@@ -1,5 +1,9 @@
 <template>
-  <div class="form-renderer" :class="{ 'form-loading': isSubmitting }">
+  <div
+    class="form-renderer"
+    :class="{ 'form-loading': isSubmitting }"
+    :style="cssVariables"
+  >
     <!-- Success Message -->
     <div v-if="showSuccessMessage" class="form-success">
       <svg class="form-success-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,14 +161,15 @@
       </div>
 
       <!-- Submit Button -->
-      <button
-        v-if="content.showSubmitButton"
-        type="submit"
-        class="form-submit"
-        :disabled="disabled || isSubmitting"
-      >
-        {{ isSubmitting ? 'Enviando...' : content.submitButtonText }}
-      </button>
+      <div v-if="content.showSubmitButton" class="button-wrapper" :style="buttonWrapperStyle">
+        <button
+          type="submit"
+          class="form-submit"
+          :disabled="disabled || isSubmitting"
+        >
+          {{ isSubmitting ? 'Enviando...' : content.submitButtonText }}
+        </button>
+      </div>
     </form>
 
     <!-- Loading Spinner -->
@@ -179,6 +184,10 @@ export default {
     content: {
       type: Object,
       default: () => ({})
+    },
+    uid: {
+      type: String,
+      required: true
     }
   },
   data() {
@@ -189,12 +198,81 @@ export default {
       showSuccessMessage: false
     }
   },
+  setup(props) {
+    // Exposed Variables
+    const { value: formDataVar, setValue: setFormDataVar } = wwLib.wwVariable.useComponentVariable({
+      uid: props.uid,
+      name: 'formData',
+      type: 'object',
+      defaultValue: {}
+    })
+
+    const { value: lastSubmitDataVar, setValue: setLastSubmitDataVar } = wwLib.wwVariable.useComponentVariable({
+      uid: props.uid,
+      name: 'lastSubmitData',
+      type: 'object',
+      defaultValue: null
+    })
+
+    const { value: isValidVar, setValue: setIsValidVar } = wwLib.wwVariable.useComponentVariable({
+      uid: props.uid,
+      name: 'isValid',
+      type: 'boolean',
+      defaultValue: false
+    })
+
+    const { value: errorsVar, setValue: setErrorsVar } = wwLib.wwVariable.useComponentVariable({
+      uid: props.uid,
+      name: 'errors',
+      type: 'object',
+      defaultValue: {}
+    })
+
+    return {
+      formDataVar,
+      setFormDataVar,
+      lastSubmitDataVar,
+      setLastSubmitDataVar,
+      isValidVar,
+      setIsValidVar,
+      errorsVar,
+      setErrorsVar
+    }
+  },
   computed: {
     fields() {
       return this.content.schema?.fields || []
     },
     disabled() {
       return this.content.disabled || false
+    },
+    cssVariables() {
+      return {
+        '--primary-color': this.content.primaryColor || '#3b82f6',
+        '--error-color': this.content.errorColor || '#dc2626',
+        '--success-color': this.content.successColor || '#10b981',
+        '--label-color': this.content.labelColor || '#1f2937',
+        '--input-bg-color': this.content.inputBackgroundColor || '#ffffff',
+        '--input-border-color': this.content.inputBorderColor || '#d1d5db',
+        '--label-font-size': this.content.labelFontSize || '14px',
+        '--input-font-size': this.content.inputFontSize || '15px',
+        '--button-font-size': this.content.buttonFontSize || '16px',
+        '--help-font-size': this.content.helpTextFontSize || '13px',
+        '--input-border-radius': this.content.inputBorderRadius || '6px',
+        '--button-border-radius': this.content.buttonBorderRadius || '6px',
+        '--field-spacing': this.content.fieldSpacing || '1.5rem'
+      }
+    },
+    buttonWrapperStyle() {
+      const alignment = this.content.submitButtonAlign || 'left'
+      const alignmentMap = {
+        left: 'flex-start',
+        center: 'center',
+        right: 'flex-end'
+      }
+      return {
+        justifyContent: alignmentMap[alignment] || 'flex-start'
+      }
     }
   },
   watch: {
@@ -236,6 +314,28 @@ export default {
         }
       })
       this.formData = data
+      this.updateExposedVariables()
+    },
+
+    updateExposedVariables() {
+      // Update exposed variables
+      this.setFormDataVar({ ...this.formData })
+      this.setErrorsVar({ ...this.errors })
+
+      // Check if form is currently valid
+      const isValid = Object.keys(this.errors).length === 0 &&
+                      this.fields.length > 0 &&
+                      this.fields.every(field => {
+                        if (field.required) {
+                          const value = this.formData[field.fieldId]
+                          if (field.type === 'checkbox') return value === true
+                          if (field.type === 'number') return value !== null && value !== '' && !isNaN(value)
+                          return value && value.toString().trim() !== ''
+                        }
+                        return true
+                      })
+
+      this.setIsValidVar(isValid)
     },
 
     validateField(field) {
@@ -294,6 +394,7 @@ export default {
         this.errors = newErrors
       }
 
+      this.updateExposedVariables()
       return !error
     },
 
@@ -332,7 +433,14 @@ export default {
         errors: {}
       }
 
-      this.$emit('submit', submitData)
+      // Update lastSubmitData variable
+      this.setLastSubmitDataVar({ ...this.formData })
+
+      // Emit event with data
+      this.$emit('trigger-event', {
+        name: 'submit',
+        event: submitData
+      })
 
       // Show success message
       this.showSuccessMessage = true
@@ -349,6 +457,7 @@ export default {
 
     setData(data) {
       this.formData = { ...this.formData, ...data }
+      this.updateExposedVariables()
     },
 
     reset() {
@@ -376,7 +485,7 @@ export default {
 }
 
 .form-field {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--field-spacing, 1.5rem);
 }
 
 .form-field:last-of-type {
@@ -386,15 +495,15 @@ export default {
 /* Labels */
 .form-label {
   display: block;
-  font-size: 14px;
+  font-size: var(--label-font-size, 14px);
   font-weight: 600;
-  color: #1f2937;
+  color: var(--label-color, #1f2937);
   margin-bottom: 0.5rem;
   line-height: 1.4;
 }
 
 .required-indicator {
-  color: #dc2626;
+  color: var(--error-color, #dc2626);
   margin-left: 2px;
   font-weight: 700;
 }
@@ -402,7 +511,7 @@ export default {
 /* Help Text */
 .help-text {
   display: block;
-  font-size: 13px;
+  font-size: var(--help-font-size, 13px);
   color: #6b7280;
   margin-top: 0.375rem;
   line-height: 1.4;
@@ -411,8 +520,8 @@ export default {
 /* Error Messages */
 .error-message {
   display: block;
-  font-size: 13px;
-  color: #dc2626;
+  font-size: var(--help-font-size, 13px);
+  color: var(--error-color, #dc2626);
   margin-top: 0.375rem;
   font-weight: 500;
   animation: slideDown 0.2s ease-out;
@@ -435,13 +544,13 @@ export default {
 .form-select {
   width: 100%;
   padding: 0.625rem 0.875rem;
-  font-size: 15px;
+  font-size: var(--input-font-size, 15px);
   font-family: inherit;
   line-height: 1.5;
   color: #1f2937;
-  background-color: #ffffff;
-  border: 1.5px solid #d1d5db;
-  border-radius: 6px;
+  background-color: var(--input-bg-color, #ffffff);
+  border: 1.5px solid var(--input-border-color, #d1d5db);
+  border-radius: var(--input-border-radius, 6px);
   transition: all 0.15s ease-in-out;
   outline: none;
 }
@@ -455,21 +564,21 @@ export default {
 .form-input:focus,
 .form-textarea:focus,
 .form-select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--primary-color, #3b82f6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #3b82f6) 10%, transparent);
 }
 
 .form-input.error,
 .form-textarea.error,
 .form-select.error {
-  border-color: #dc2626;
-  background-color: #fef2f2;
+  border-color: var(--error-color, #dc2626);
+  background-color: color-mix(in srgb, var(--error-color, #dc2626) 5%, white);
 }
 
 .form-input.error:focus,
 .form-textarea.error:focus,
 .form-select.error:focus {
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--error-color, #dc2626) 10%, transparent);
 }
 
 .form-input:disabled,
@@ -520,18 +629,19 @@ export default {
   margin-right: 0.5rem;
   cursor: pointer;
   border-radius: 4px;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--input-border-color, #d1d5db);
   transition: all 0.15s ease;
+  accent-color: var(--primary-color, #3b82f6);
 }
 
 .form-checkbox:checked {
-  background-color: #3b82f6;
-  border-color: #3b82f6;
+  background-color: var(--primary-color, #3b82f6);
+  border-color: var(--primary-color, #3b82f6);
 }
 
 .form-checkbox:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #3b82f6) 10%, transparent);
 }
 
 .form-checkbox:disabled {
@@ -540,7 +650,7 @@ export default {
 }
 
 .form-checkbox-label {
-  font-size: 15px;
+  font-size: var(--input-font-size, 15px);
   color: #1f2937;
   cursor: pointer;
 }
@@ -566,19 +676,16 @@ export default {
   margin-right: 0.5rem;
   cursor: pointer;
   transition: all 0.15s ease;
-}
-
-.form-radio:checked {
-  accent-color: #3b82f6;
+  accent-color: var(--primary-color, #3b82f6);
 }
 
 .form-radio:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #3b82f6) 10%, transparent);
 }
 
 .form-radio-label {
-  font-size: 15px;
+  font-size: var(--input-font-size, 15px);
   color: #1f2937;
   cursor: pointer;
 }
@@ -603,22 +710,27 @@ export default {
 }
 
 /* Submit Button */
-.form-submit {
+.button-wrapper {
+  display: flex;
   width: 100%;
+}
+
+.form-submit {
   padding: 0.75rem 1.5rem;
-  font-size: 16px;
+  font-size: var(--button-font-size, 16px);
   font-weight: 600;
   color: #ffffff;
-  background-color: #3b82f6;
+  background-color: var(--primary-color, #3b82f6);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--button-border-radius, 6px);
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-width: 120px;
 }
 
 .form-submit:hover:not(:disabled) {
-  background-color: #2563eb;
+  background-color: color-mix(in srgb, var(--primary-color, #3b82f6) 85%, black);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
@@ -636,16 +748,16 @@ export default {
 
 .form-submit:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #3b82f6) 30%, transparent);
 }
 
 /* Success Message */
 .form-success {
   padding: 1rem;
-  background-color: #d1fae5;
-  border: 1px solid #10b981;
+  background-color: color-mix(in srgb, var(--success-color, #10b981) 15%, white);
+  border: 1px solid var(--success-color, #10b981);
   border-radius: 6px;
-  color: #065f46;
+  color: color-mix(in srgb, var(--success-color, #10b981) 85%, black);
   margin-bottom: 1rem;
   display: flex;
   align-items: center;
@@ -656,7 +768,7 @@ export default {
 .form-success-icon {
   width: 20px;
   height: 20px;
-  color: #10b981;
+  color: var(--success-color, #10b981);
   flex-shrink: 0;
 }
 
@@ -671,7 +783,7 @@ export default {
   left: 50%;
   transform: translate(-50%, -50%);
   border: 3px solid #f3f4f6;
-  border-top: 3px solid #3b82f6;
+  border-top: 3px solid var(--primary-color, #3b82f6);
   border-radius: 50%;
   width: 40px;
   height: 40px;

@@ -1,7 +1,7 @@
 {
   "name": "ww-form-renderer",
-  "version": "1.0.0",
-  "description": "Form renderer component for WeWeb - renders dynamic forms from JSON schema",
+  "version": "2.0.0",
+  "description": "Form renderer component for WeWeb - renders dynamic forms from JSON schema with exposed variables",
   "main": "ww-config.js",
   "scripts": {
     "build": "weweb build",
@@ -13,9 +13,10 @@
     "renderer",
     "dynamic-form",
     "form-validation",
-    "json-schema"
+    "json-schema",
+    "form-builder"
   ],
-  "author": "Your Name",
+  "author": "",
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {}
