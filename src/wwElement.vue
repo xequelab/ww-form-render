@@ -391,6 +391,13 @@ export default {
       defaultValue: {}
     })
 
+    const { value: formDataWithLabelsVar, setValue: setFormDataWithLabelsVar } = wwLib.wwVariable.useComponentVariable({
+      uid: props.uid,
+      name: 'formDataWithLabels',
+      type: 'array',
+      defaultValue: []
+    })
+
     return {
       formDataVar,
       setFormDataVar,
@@ -399,7 +406,9 @@ export default {
       isValidVar,
       setIsValidVar,
       errorsVar,
-      setErrorsVar
+      setErrorsVar,
+      formDataWithLabelsVar,
+      setFormDataWithLabelsVar
     }
   },
   computed: {
@@ -513,6 +522,49 @@ export default {
       // Update exposed variables
       this.setFormDataVar({ ...this.formData })
       this.setErrorsVar({ ...this.errors })
+
+      // Create formDataWithLabels array for easy rendering
+      const formDataWithLabels = this.fields
+        .filter(field => field.type !== 'separator' && field.type !== 'link')
+        .map(field => {
+          const fieldKey = this.getFieldKey(field)
+          let value = this.formData[fieldKey]
+
+          // Handle address fields specially
+          if (field.type === 'address') {
+            const addressParts = [
+              this.formData[fieldKey + '_street'],
+              this.formData[fieldKey + '_number'],
+              this.formData[fieldKey + '_complement'],
+              this.formData[fieldKey + '_neighborhood'],
+              this.formData[fieldKey + '_city'],
+              this.formData[fieldKey + '_state'],
+              this.formData[fieldKey + '_zipcode']
+            ].filter(part => part && part.trim() !== '')
+
+            value = addressParts.join(', ')
+          }
+
+          // Format boolean values
+          if (field.type === 'checkbox' || field.type === 'toggle' || field.type === 'consent') {
+            value = value ? 'Sim' : 'Não'
+          }
+
+          // Format select/radio options to show label instead of value
+          if ((field.type === 'select' || field.type === 'radio') && field.options && value) {
+            const option = field.options.find(opt => opt.value === value)
+            value = option ? option.label : value
+          }
+
+          return {
+            key: fieldKey,
+            label: field.label,
+            value: value,
+            type: field.type
+          }
+        })
+
+      this.setFormDataWithLabelsVar(formDataWithLabels)
 
       // Check if form is currently valid
       const isValid = Object.keys(this.errors).length === 0 &&
