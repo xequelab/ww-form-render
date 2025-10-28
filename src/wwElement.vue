@@ -149,6 +149,162 @@
           @blur="validateField(field)"
         />
 
+        <!-- Phone Input -->
+        <input
+          v-else-if="field.type === 'phone'"
+          :id="field.fieldId"
+          v-model="formData[field.fieldId]"
+          type="tel"
+          class="form-input"
+          :class="{ error: errors[field.fieldId] }"
+          :placeholder="field.placeholder || field.mask"
+          :disabled="disabled"
+          @blur="validateField(field)"
+          @input="applyPhoneMask(field)"
+        />
+
+        <!-- Toggle Switch -->
+        <div v-else-if="field.type === 'toggle'" class="form-toggle-wrapper">
+          <label class="toggle-switch">
+            <input
+              :id="field.fieldId"
+              v-model="formData[field.fieldId]"
+              type="checkbox"
+              class="toggle-input"
+              :disabled="disabled"
+              @change="validateField(field)"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label">
+            {{ formData[field.fieldId] ? (field.labelOn || 'Ativado') : (field.labelOff || 'Desativado') }}
+          </span>
+        </div>
+
+        <!-- Slider -->
+        <div v-else-if="field.type === 'slider'" class="form-slider-wrapper">
+          <input
+            :id="field.fieldId"
+            v-model.number="formData[field.fieldId]"
+            type="range"
+            class="form-slider"
+            :min="field.min || 0"
+            :max="field.max || 100"
+            :step="field.step || 1"
+            :disabled="disabled"
+            @input="validateField(field)"
+          />
+          <div class="slider-value">
+            {{ formData[field.fieldId] }}{{ field.unit || '' }}
+          </div>
+        </div>
+
+        <!-- Address Fields -->
+        <div v-else-if="field.type === 'address'" class="form-address-wrapper">
+          <div class="address-row">
+            <div class="address-field full-width">
+              <input
+                type="text"
+                v-model="formData[field.fieldId + '_street']"
+                placeholder="Rua"
+                class="form-input"
+                :disabled="disabled"
+              />
+            </div>
+          </div>
+          <div class="address-row">
+            <div class="address-field">
+              <input
+                type="text"
+                v-model="formData[field.fieldId + '_number']"
+                placeholder="Número"
+                class="form-input"
+                :disabled="disabled"
+              />
+            </div>
+            <div class="address-field">
+              <input
+                type="text"
+                v-model="formData[field.fieldId + '_complement']"
+                placeholder="Complemento"
+                class="form-input"
+                :disabled="disabled"
+              />
+            </div>
+          </div>
+          <div class="address-row">
+            <div class="address-field">
+              <input
+                type="text"
+                v-model="formData[field.fieldId + '_neighborhood']"
+                placeholder="Bairro"
+                class="form-input"
+                :disabled="disabled"
+              />
+            </div>
+            <div class="address-field">
+              <input
+                type="text"
+                v-model="formData[field.fieldId + '_city']"
+                placeholder="Cidade"
+                class="form-input"
+                :disabled="disabled"
+              />
+            </div>
+          </div>
+          <div class="address-row">
+            <div class="address-field">
+              <input
+                type="text"
+                v-model="formData[field.fieldId + '_state']"
+                placeholder="Estado"
+                class="form-input"
+                :disabled="disabled"
+              />
+            </div>
+            <div class="address-field">
+              <input
+                type="text"
+                v-model="formData[field.fieldId + '_zipcode']"
+                placeholder="CEP"
+                class="form-input"
+                :disabled="disabled"
+                maxlength="9"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Link -->
+        <div v-else-if="field.type === 'link'" class="form-link">
+          <a
+            :href="field.url"
+            :target="field.openNewTab ? '_blank' : '_self'"
+            :rel="field.openNewTab ? 'noopener noreferrer' : ''"
+            class="link-element"
+          >
+            {{ field.linkText || field.url }}
+          </a>
+        </div>
+
+        <!-- Separator -->
+        <hr v-else-if="field.type === 'separator'" class="form-separator" />
+
+        <!-- Consent -->
+        <div v-else-if="field.type === 'consent'" class="form-consent-wrapper">
+          <label class="consent-label">
+            <input
+              :id="field.fieldId"
+              v-model="formData[field.fieldId]"
+              type="checkbox"
+              class="form-checkbox"
+              :disabled="disabled"
+              @change="validateField(field)"
+            />
+            <span class="consent-text" v-html="formatConsentText(field)"></span>
+          </label>
+        </div>
+
         <!-- Help Text -->
         <small v-if="field.helpText" class="help-text">
           {{ field.helpText }}
@@ -304,10 +460,22 @@ export default {
           data[field.fieldId] = this.content.initialData[field.fieldId]
         } else {
           // Initialize with default values based on type
-          if (field.type === 'checkbox') {
-            data[field.fieldId] = false
-          } else if (field.type === 'number') {
-            data[field.fieldId] = null
+          if (field.type === 'checkbox' || field.type === 'toggle' || field.type === 'consent') {
+            data[field.fieldId] = field.defaultValue !== undefined ? field.defaultValue : false
+          } else if (field.type === 'number' || field.type === 'slider') {
+            data[field.fieldId] = field.defaultValue !== undefined ? field.defaultValue : (field.min || 0)
+          } else if (field.type === 'address') {
+            // Initialize address sub-fields
+            data[field.fieldId + '_street'] = ''
+            data[field.fieldId + '_number'] = ''
+            data[field.fieldId + '_complement'] = ''
+            data[field.fieldId + '_neighborhood'] = ''
+            data[field.fieldId + '_city'] = ''
+            data[field.fieldId + '_state'] = ''
+            data[field.fieldId + '_zipcode'] = ''
+          } else if (field.type === 'link' || field.type === 'separator') {
+            // Links and separators don't need data
+            // Skip initialization
           } else {
             data[field.fieldId] = ''
           }
@@ -468,6 +636,35 @@ export default {
 
     clearErrors() {
       this.errors = {}
+    },
+
+    applyPhoneMask(field) {
+      if (!field.mask) return
+
+      let value = this.formData[field.fieldId].replace(/\D/g, '')
+
+      // Apply Brazilian phone mask (99) 99999-9999
+      if (field.country === 'BR' || field.mask === '(99) 99999-9999') {
+        if (value.length <= 11) {
+          value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3')
+          value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3')
+          value = value.replace(/^(\d{2})(\d{0,5})/, '($1) $2')
+        }
+      }
+
+      this.formData[field.fieldId] = value
+    },
+
+    formatConsentText(field) {
+      let text = field.consentText || field.label || ''
+
+      // If there's a link URL, make it clickable
+      if (field.linkUrl && field.linkText) {
+        const linkHtml = `<a href="${field.linkUrl}" target="_blank" rel="noopener noreferrer" class="consent-link">${field.linkText}</a>`
+        text = text.replace(field.linkText, linkHtml)
+      }
+
+      return text
     }
   }
 }
@@ -821,5 +1018,193 @@ export default {
   .form-submit {
     padding: 0.875rem 1rem;
   }
+}
+
+/* Toggle Switch */
+.form-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+}
+
+.toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #d1d5db;
+  transition: 0.3s;
+  border-radius: 26px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-input:checked + .toggle-slider {
+  background-color: var(--primary-color, #3b82f6);
+}
+
+.toggle-input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
+
+.toggle-input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-label {
+  font-size: var(--input-font-size, 15px);
+  color: #1f2937;
+}
+
+/* Slider */
+.form-slider-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: #d1d5db;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.form-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color, #3b82f6);
+  cursor: pointer;
+}
+
+.form-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color, #3b82f6);
+  cursor: pointer;
+  border: none;
+}
+
+.form-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.slider-value {
+  text-align: center;
+  font-size: var(--input-font-size, 15px);
+  font-weight: 600;
+  color: var(--primary-color, #3b82f6);
+}
+
+/* Address Fields */
+.form-address-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.address-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.address-field {
+  flex: 1;
+}
+
+.address-field.full-width {
+  flex: 1 1 100%;
+}
+
+/* Link */
+.form-link {
+  padding: 0.5rem 0;
+}
+
+.link-element {
+  color: var(--primary-color, #3b82f6);
+  text-decoration: underline;
+  font-size: var(--input-font-size, 15px);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.link-element:hover {
+  color: color-mix(in srgb, var(--primary-color, #3b82f6) 75%, black);
+}
+
+/* Separator */
+.form-separator {
+  border: none;
+  border-top: 1.5px solid var(--input-border-color, #d1d5db);
+  margin: 1rem 0;
+}
+
+/* Consent */
+.form-consent-wrapper {
+  display: flex;
+  align-items: flex-start;
+}
+
+.consent-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.consent-label .form-checkbox {
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.consent-text {
+  font-size: var(--input-font-size, 15px);
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.consent-link {
+  color: var(--primary-color, #3b82f6);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.consent-link:hover {
+  color: color-mix(in srgb, var(--primary-color, #3b82f6) 75%, black);
 }
 </style>
