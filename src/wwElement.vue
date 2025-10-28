@@ -18,10 +18,17 @@
         v-for="field in fields"
         :key="field.id"
         class="form-field"
-        :class="{ 'has-error': errors[field.fieldId] }"
+        :class="{
+          'has-error': errors[field.fieldId],
+          'no-label': field.type === 'separator' || field.type === 'link'
+        }"
       >
-        <!-- Label -->
-        <label :for="field.fieldId" class="form-label">
+        <!-- Label (hidden for separator and link) -->
+        <label
+          v-if="field.type !== 'separator' && field.type !== 'link'"
+          :for="field.fieldId"
+          class="form-label"
+        >
           {{ field.label }}
           <span v-if="field.required" class="required-indicator">*</span>
         </label>
@@ -687,6 +694,10 @@ export default {
 
 .form-field:last-of-type {
   margin-bottom: 2rem;
+}
+
+.form-field.no-label {
+  margin-bottom: 1rem;
 }
 
 /* Labels */
