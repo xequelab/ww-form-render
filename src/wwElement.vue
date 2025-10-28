@@ -19,14 +19,14 @@
         :key="field.id"
         class="form-field"
         :class="{
-          'has-error': errors[field.fieldId],
+          'has-error': errors[getFieldKey(field)],
           'no-label': field.type === 'separator' || field.type === 'link'
         }"
       >
         <!-- Label (hidden for separator and link) -->
         <label
           v-if="field.type !== 'separator' && field.type !== 'link'"
-          :for="field.fieldId"
+          :for="getFieldKey(field)"
           class="form-label"
         >
           {{ field.label }}
@@ -36,11 +36,11 @@
         <!-- Text Input -->
         <input
           v-if="field.type === 'text'"
-          :id="field.fieldId"
-          v-model="formData[field.fieldId]"
+          :id="getFieldKey(field)"
+          v-model="formData[getFieldKey(field)]"
           type="text"
           class="form-input"
-          :class="{ error: errors[field.fieldId] }"
+          :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder"
           :maxlength="field.maxLength"
           :disabled="disabled"
@@ -50,10 +50,10 @@
         <!-- Textarea -->
         <textarea
           v-else-if="field.type === 'textarea'"
-          :id="field.fieldId"
-          v-model="formData[field.fieldId]"
+          :id="getFieldKey(field)"
+          v-model="formData[getFieldKey(field)]"
           class="form-textarea"
-          :class="{ error: errors[field.fieldId] }"
+          :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder"
           :maxlength="field.maxLength"
           :disabled="disabled"
@@ -63,11 +63,11 @@
         <!-- Number Input -->
         <input
           v-else-if="field.type === 'number'"
-          :id="field.fieldId"
-          v-model.number="formData[field.fieldId]"
+          :id="getFieldKey(field)"
+          v-model.number="formData[getFieldKey(field)]"
           type="number"
           class="form-input"
-          :class="{ error: errors[field.fieldId] }"
+          :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder"
           :min="field.min"
           :max="field.max"
@@ -79,11 +79,11 @@
         <!-- Email Input -->
         <input
           v-else-if="field.type === 'email'"
-          :id="field.fieldId"
-          v-model="formData[field.fieldId]"
+          :id="getFieldKey(field)"
+          v-model="formData[getFieldKey(field)]"
           type="email"
           class="form-input"
-          :class="{ error: errors[field.fieldId] }"
+          :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder"
           :maxlength="field.maxLength"
           :disabled="disabled"
@@ -93,10 +93,10 @@
         <!-- Select Dropdown -->
         <select
           v-else-if="field.type === 'select'"
-          :id="field.fieldId"
-          v-model="formData[field.fieldId]"
+          :id="getFieldKey(field)"
+          v-model="formData[getFieldKey(field)]"
           class="form-select"
-          :class="{ error: errors[field.fieldId] }"
+          :class="{ error: errors[getFieldKey(field)] }"
           :disabled="disabled"
           @blur="validateField(field)"
         >
@@ -109,14 +109,14 @@
         <!-- Checkbox -->
         <div v-else-if="field.type === 'checkbox'" class="form-checkbox-wrapper">
           <input
-            :id="field.fieldId"
-            v-model="formData[field.fieldId]"
+            :id="getFieldKey(field)"
+            v-model="formData[getFieldKey(field)]"
             type="checkbox"
             class="form-checkbox"
             :disabled="disabled"
             @change="validateField(field)"
           />
-          <label :for="field.fieldId" class="form-checkbox-label">
+          <label :for="getFieldKey(field)" class="form-checkbox-label">
             {{ field.placeholder || 'Marcar' }}
           </label>
         </div>
@@ -129,16 +129,16 @@
             class="form-radio-wrapper"
           >
             <input
-              :id="`${field.fieldId}-${option.value}`"
-              v-model="formData[field.fieldId]"
+              :id="`${getFieldKey(field)}-${option.value}`"
+              v-model="formData[getFieldKey(field)]"
               type="radio"
-              :name="field.fieldId"
+              :name="getFieldKey(field)"
               :value="option.value"
               class="form-radio"
               :disabled="disabled"
               @change="validateField(field)"
             />
-            <label :for="`${field.fieldId}-${option.value}`" class="form-radio-label">
+            <label :for="`${getFieldKey(field)}-${option.value}`" class="form-radio-label">
               {{ option.label }}
             </label>
           </div>
@@ -147,11 +147,11 @@
         <!-- Date Input -->
         <input
           v-else-if="field.type === 'date'"
-          :id="field.fieldId"
-          v-model="formData[field.fieldId]"
+          :id="getFieldKey(field)"
+          v-model="formData[getFieldKey(field)]"
           type="date"
           class="form-input"
-          :class="{ error: errors[field.fieldId] }"
+          :class="{ error: errors[getFieldKey(field)] }"
           :disabled="disabled"
           @blur="validateField(field)"
         />
@@ -159,11 +159,11 @@
         <!-- Phone Input -->
         <input
           v-else-if="field.type === 'phone'"
-          :id="field.fieldId"
-          v-model="formData[field.fieldId]"
+          :id="getFieldKey(field)"
+          v-model="formData[getFieldKey(field)]"
           type="tel"
           class="form-input"
-          :class="{ error: errors[field.fieldId] }"
+          :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder || field.mask"
           :disabled="disabled"
           @blur="validateField(field)"
@@ -174,8 +174,8 @@
         <div v-else-if="field.type === 'toggle'" class="form-toggle-wrapper">
           <label class="toggle-switch">
             <input
-              :id="field.fieldId"
-              v-model="formData[field.fieldId]"
+              :id="getFieldKey(field)"
+              v-model="formData[getFieldKey(field)]"
               type="checkbox"
               class="toggle-input"
               :disabled="disabled"
@@ -184,15 +184,15 @@
             <span class="toggle-slider"></span>
           </label>
           <span class="toggle-label">
-            {{ formData[field.fieldId] ? (field.labelOn || 'Ativado') : (field.labelOff || 'Desativado') }}
+            {{ formData[getFieldKey(field)] ? (field.labelOn || 'Ativado') : (field.labelOff || 'Desativado') }}
           </span>
         </div>
 
         <!-- Slider -->
         <div v-else-if="field.type === 'slider'" class="form-slider-wrapper">
           <input
-            :id="field.fieldId"
-            v-model.number="formData[field.fieldId]"
+            :id="getFieldKey(field)"
+            v-model.number="formData[getFieldKey(field)]"
             type="range"
             class="form-slider"
             :min="field.min || 0"
@@ -202,7 +202,7 @@
             @input="validateField(field)"
           />
           <div class="slider-value">
-            {{ formData[field.fieldId] }}{{ field.unit || '' }}
+            {{ formData[getFieldKey(field)] }}{{ field.unit || '' }}
           </div>
         </div>
 
@@ -212,7 +212,7 @@
             <div class="address-field full-width">
               <input
                 type="text"
-                v-model="formData[field.fieldId + '_street']"
+                v-model="formData[getFieldKey(field) + '_street']"
                 placeholder="Rua"
                 class="form-input"
                 :disabled="disabled"
@@ -223,7 +223,7 @@
             <div class="address-field">
               <input
                 type="text"
-                v-model="formData[field.fieldId + '_number']"
+                v-model="formData[getFieldKey(field) + '_number']"
                 placeholder="Número"
                 class="form-input"
                 :disabled="disabled"
@@ -232,7 +232,7 @@
             <div class="address-field">
               <input
                 type="text"
-                v-model="formData[field.fieldId + '_complement']"
+                v-model="formData[getFieldKey(field) + '_complement']"
                 placeholder="Complemento"
                 class="form-input"
                 :disabled="disabled"
@@ -243,7 +243,7 @@
             <div class="address-field">
               <input
                 type="text"
-                v-model="formData[field.fieldId + '_neighborhood']"
+                v-model="formData[getFieldKey(field) + '_neighborhood']"
                 placeholder="Bairro"
                 class="form-input"
                 :disabled="disabled"
@@ -252,7 +252,7 @@
             <div class="address-field">
               <input
                 type="text"
-                v-model="formData[field.fieldId + '_city']"
+                v-model="formData[getFieldKey(field) + '_city']"
                 placeholder="Cidade"
                 class="form-input"
                 :disabled="disabled"
@@ -263,7 +263,7 @@
             <div class="address-field">
               <input
                 type="text"
-                v-model="formData[field.fieldId + '_state']"
+                v-model="formData[getFieldKey(field) + '_state']"
                 placeholder="Estado"
                 class="form-input"
                 :disabled="disabled"
@@ -272,7 +272,7 @@
             <div class="address-field">
               <input
                 type="text"
-                v-model="formData[field.fieldId + '_zipcode']"
+                v-model="formData[getFieldKey(field) + '_zipcode']"
                 placeholder="CEP"
                 class="form-input"
                 :disabled="disabled"
@@ -301,8 +301,8 @@
         <div v-else-if="field.type === 'consent'" class="form-consent-wrapper">
           <label class="consent-label">
             <input
-              :id="field.fieldId"
-              v-model="formData[field.fieldId]"
+              :id="getFieldKey(field)"
+              v-model="formData[getFieldKey(field)]"
               type="checkbox"
               class="form-checkbox"
               :disabled="disabled"
@@ -318,8 +318,8 @@
         </small>
 
         <!-- Error Message -->
-        <span v-if="errors[field.fieldId]" class="error-message">
-          {{ errors[field.fieldId] }}
+        <span v-if="errors[getFieldKey(field)]" class="error-message">
+          {{ errors[getFieldKey(field)] }}
         </span>
       </div>
 
@@ -460,31 +460,48 @@ export default {
     this.initializeFormData()
   },
   methods: {
+    getFieldKey(field) {
+      // Generate variable name from label, fallback to fieldId
+      const label = field.label || field.fieldId
+      // Remove special characters, normalize spaces and convert to snake_case
+      return label
+        .normalize('NFD') // Normalize unicode characters
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s]/g, '') // Remove special characters
+        .replace(/\s+/g, '_') // Replace spaces with underscores
+        .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+        .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+        || field.fieldId // Fallback to fieldId if label processing results in empty string
+    },
+
     initializeFormData() {
       const data = {}
       this.fields.forEach(field => {
-        if (this.content.initialData && this.content.initialData[field.fieldId] !== undefined) {
-          data[field.fieldId] = this.content.initialData[field.fieldId]
+        const fieldKey = this.getFieldKey(field)
+        if (this.content.initialData && this.content.initialData[fieldKey] !== undefined) {
+          data[fieldKey] = this.content.initialData[fieldKey]
         } else {
           // Initialize with default values based on type
           if (field.type === 'checkbox' || field.type === 'toggle' || field.type === 'consent') {
-            data[field.fieldId] = field.defaultValue !== undefined ? field.defaultValue : false
+            data[fieldKey] = field.defaultValue !== undefined ? field.defaultValue : false
           } else if (field.type === 'number' || field.type === 'slider') {
-            data[field.fieldId] = field.defaultValue !== undefined ? field.defaultValue : (field.min || 0)
+            data[fieldKey] = field.defaultValue !== undefined ? field.defaultValue : (field.min || 0)
           } else if (field.type === 'address') {
             // Initialize address sub-fields
-            data[field.fieldId + '_street'] = ''
-            data[field.fieldId + '_number'] = ''
-            data[field.fieldId + '_complement'] = ''
-            data[field.fieldId + '_neighborhood'] = ''
-            data[field.fieldId + '_city'] = ''
-            data[field.fieldId + '_state'] = ''
-            data[field.fieldId + '_zipcode'] = ''
+            data[fieldKey + '_street'] = ''
+            data[fieldKey + '_number'] = ''
+            data[fieldKey + '_complement'] = ''
+            data[fieldKey + '_neighborhood'] = ''
+            data[fieldKey + '_city'] = ''
+            data[fieldKey + '_state'] = ''
+            data[fieldKey + '_zipcode'] = ''
           } else if (field.type === 'link' || field.type === 'separator') {
             // Links and separators don't need data
             // Skip initialization
           } else {
-            data[field.fieldId] = ''
+            data[fieldKey] = ''
           }
         }
       })
@@ -502,7 +519,8 @@ export default {
                       this.fields.length > 0 &&
                       this.fields.every(field => {
                         if (field.required) {
-                          const value = this.formData[field.fieldId]
+                          const fieldKey = this.getFieldKey(field)
+                          const value = this.formData[fieldKey]
                           if (field.type === 'checkbox') return value === true
                           if (field.type === 'number') return value !== null && value !== '' && !isNaN(value)
                           return value && value.toString().trim() !== ''
@@ -514,7 +532,8 @@ export default {
     },
 
     validateField(field) {
-      const value = this.formData[field.fieldId]
+      const fieldKey = this.getFieldKey(field)
+      const value = this.formData[fieldKey]
       let error = null
 
       // Required validation
@@ -562,10 +581,10 @@ export default {
 
       // Update errors
       if (error) {
-        this.errors = { ...this.errors, [field.fieldId]: error }
+        this.errors = { ...this.errors, [fieldKey]: error }
       } else {
         const newErrors = { ...this.errors }
-        delete newErrors[field.fieldId]
+        delete newErrors[fieldKey]
         this.errors = newErrors
       }
 
@@ -648,7 +667,8 @@ export default {
     applyPhoneMask(field) {
       if (!field.mask) return
 
-      let value = this.formData[field.fieldId].replace(/\D/g, '')
+      const fieldKey = this.getFieldKey(field)
+      let value = this.formData[fieldKey].replace(/\D/g, '')
 
       // Apply Brazilian phone mask (99) 99999-9999
       if (field.country === 'BR' || field.mask === '(99) 99999-9999') {
@@ -659,7 +679,7 @@ export default {
         }
       }
 
-      this.formData[field.fieldId] = value
+      this.formData[fieldKey] = value
     },
 
     formatConsentText(field) {
