@@ -34,18 +34,38 @@
         </label>
 
         <!-- Text Input -->
-        <input
-          v-if="field.type === 'text'"
-          :id="getFieldKey(field)"
-          v-model="formData[getFieldKey(field)]"
-          type="text"
-          class="form-input"
-          :class="{ error: errors[getFieldKey(field)] }"
-          :placeholder="field.placeholder"
-          :maxlength="field.maxLength"
-          :disabled="disabled"
-          @blur="validateField(field)"
-        />
+        <div v-if="field.type === 'text'" class="input-wrapper" :class="{ 'autocomplete-wrapper': isPrivateMode && isFirstField(field) }">
+          <input
+            :id="getFieldKey(field)"
+            v-model="formData[getFieldKey(field)]"
+            type="text"
+            class="form-input"
+            :class="{ error: errors[getFieldKey(field)] }"
+            :placeholder="field.placeholder"
+            :maxlength="field.maxLength"
+            :disabled="isClientFieldDisabled(field)"
+            @input="handleClientNameInput(field)"
+            @focus="handleClientFieldFocus(field)"
+            @blur="handleClientFieldBlur(field)"
+            autocomplete="off"
+          />
+
+          <!-- Client Autocomplete Dropdown -->
+          <div
+            v-if="isPrivateMode && isFirstField(field) && showClientDropdown"
+            class="client-dropdown"
+          >
+            <div
+              v-for="client in filteredClients"
+              :key="client.id"
+              class="client-dropdown-item"
+              @click="selectClient(client)"
+            >
+              <div class="client-name">{{ client.nome }}</div>
+              <div class="client-info">{{ client.email }}</div>
+            </div>
+          </div>
+        </div>
 
         <!-- Textarea -->
         <textarea
@@ -86,7 +106,7 @@
           :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder"
           :maxlength="field.maxLength"
-          :disabled="disabled"
+          :disabled="isClientFieldDisabled(field)"
           @blur="validateField(field)"
         />
 
@@ -165,7 +185,7 @@
           class="form-input"
           :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder || field.mask"
-          :disabled="disabled"
+          :disabled="isClientFieldDisabled(field)"
           @blur="validateField(field)"
           @input="applyPhoneMask(field)"
         />
@@ -358,7 +378,11 @@ export default {
       formData: {},
       errors: {},
       isSubmitting: false,
-      showSuccessMessage: false
+      showSuccessMessage: false,
+      selectedClientId: null,
+      filteredClients: [],
+      showClientDropdown: false,
+      isClientFieldsDisabled: false
     }
   },
   setup(props) {
@@ -398,6 +422,13 @@ export default {
       defaultValue: []
     })
 
+    const { value: selectedClientIdVar, setValue: setSelectedClientIdVar } = wwLib.wwVariable.useComponentVariable({
+      uid: props.uid,
+      name: 'selectedClientId',
+      type: 'string',
+      defaultValue: null
+    })
+
     return {
       formDataVar,
       setFormDataVar,
@@ -408,7 +439,9 @@ export default {
       errorsVar,
       setErrorsVar,
       formDataWithLabelsVar,
-      setFormDataWithLabelsVar
+      setFormDataWithLabelsVar,
+      selectedClientIdVar,
+      setSelectedClientIdVar
     }
   },
   computed: {
@@ -417,6 +450,29 @@ export default {
     },
     disabled() {
       return this.content.disabled || false
+    },
+    isPrivateMode() {
+      return this.content.mode === 'private'
+    },
+    clientsCollection() {
+      return this.content.clientsCollection || []
+    },
+    firstThreeFields() {
+      // Returns the first 3 fields (Nome, Email, Telefone)
+      return this.fields.slice(0, 3)
+    },
+    isFirstField() {
+      return (field) => {
+        const firstField = this.fields[0]
+        return firstField && field.id === firstField.id
+      }
+    },
+    isSecondOrThirdField() {
+      return (field) => {
+        const secondField = this.fields[1]
+        const thirdField = this.fields[2]
+        return (secondField && field.id === secondField.id) || (thirdField && field.id === thirdField.id)
+      }
     },
     cssVariables() {
       return {
@@ -710,6 +766,7 @@ export default {
       this.initializeFormData()
       this.errors = {}
       this.showSuccessMessage = false
+      this.clearClientSelection()
     },
 
     clearErrors() {
@@ -744,6 +801,123 @@ export default {
       }
 
       return text
+    },
+
+    // Private Mode - Client Autocomplete Methods
+    handleClientNameInput(field) {
+      if (!this.isPrivateMode || !this.isFirstField(field)) return
+
+      const fieldKey = this.getFieldKey(field)
+      const searchTerm = this.formData[fieldKey]
+
+      if (!searchTerm || searchTerm.length < 2) {
+        this.showClientDropdown = false
+        this.filteredClients = []
+        this.selectedClientId = null
+        this.isClientFieldsDisabled = false
+        this.setSelectedClientIdVar(null)
+        return
+      }
+
+      // Filter clients by name
+      this.filteredClients = this.clientsCollection.filter(client =>
+        client.nome && client.nome.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+
+      this.showClientDropdown = this.filteredClients.length > 0
+
+      // Clear selection if user is typing
+      if (this.selectedClientId) {
+        this.selectedClientId = null
+        this.isClientFieldsDisabled = false
+        this.setSelectedClientIdVar(null)
+      }
+    },
+
+    selectClient(client) {
+      if (!client) return
+
+      const firstField = this.fields[0]
+      const secondField = this.fields[1]
+      const thirdField = this.fields[2]
+
+      if (firstField) {
+        const nomeKey = this.getFieldKey(firstField)
+        this.formData[nomeKey] = client.nome || ''
+      }
+
+      if (secondField) {
+        const emailKey = this.getFieldKey(secondField)
+        this.formData[emailKey] = client.email || ''
+      }
+
+      if (thirdField) {
+        const telefoneKey = this.getFieldKey(thirdField)
+        // Apply phone mask
+        const telefone = (client.telefone || '').toString()
+        this.formData[telefoneKey] = this.formatPhoneNumber(telefone)
+      }
+
+      this.selectedClientId = client.id
+      this.setSelectedClientIdVar(client.id)
+      this.isClientFieldsDisabled = true
+      this.showClientDropdown = false
+      this.filteredClients = []
+
+      this.updateExposedVariables()
+    },
+
+    formatPhoneNumber(phone) {
+      if (!phone) return ''
+
+      const cleaned = phone.toString().replace(/\D/g, '')
+
+      if (cleaned.length <= 11) {
+        let formatted = cleaned.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3')
+        formatted = formatted.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3')
+        formatted = formatted.replace(/^(\d{2})(\d{0,5})/, '($1) $2')
+        return formatted
+      }
+
+      return phone
+    },
+
+    isClientFieldDisabled(field) {
+      if (!this.isPrivateMode) return this.disabled
+
+      if (this.isSecondOrThirdField(field) && this.isClientFieldsDisabled) {
+        return true
+      }
+
+      return this.disabled
+    },
+
+    handleClientFieldFocus(field) {
+      if (!this.isPrivateMode || !this.isFirstField(field)) return
+
+      const fieldKey = this.getFieldKey(field)
+      const searchTerm = this.formData[fieldKey]
+
+      if (searchTerm && searchTerm.length >= 2 && this.filteredClients.length > 0) {
+        this.showClientDropdown = true
+      }
+    },
+
+    handleClientFieldBlur(field) {
+      // Delay to allow click on dropdown
+      setTimeout(() => {
+        this.showClientDropdown = false
+      }, 200)
+
+      this.validateField(field)
+    },
+
+    clearClientSelection() {
+      this.selectedClientId = null
+      this.setSelectedClientIdVar(null)
+      this.isClientFieldsDisabled = false
+      this.showClientDropdown = false
+      this.filteredClients = []
     }
   }
 }
@@ -1289,5 +1463,67 @@ export default {
 
 .consent-link:hover {
   color: color-mix(in srgb, var(--primary-color, #3b82f6) 75%, black);
+}
+
+/* Client Autocomplete Dropdown - Private Mode */
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.autocomplete-wrapper {
+  position: relative;
+}
+
+.client-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1.5px solid var(--input-border-color, #d1d5db);
+  border-top: none;
+  border-radius: 0 0 var(--input-border-radius, 6px) var(--input-border-radius, 6px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: -1px;
+}
+
+.client-dropdown-item {
+  padding: 0.75rem 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.client-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.client-dropdown-item:hover {
+  background-color: color-mix(in srgb, var(--primary-color, #3b82f6) 8%, white);
+}
+
+.client-name {
+  font-size: var(--input-font-size, 15px);
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.client-info {
+  font-size: calc(var(--input-font-size, 15px) - 1px);
+  color: #6b7280;
+}
+
+/* Autocomplete input focus state */
+.autocomplete-wrapper .form-input:focus {
+  border-radius: var(--input-border-radius, 6px) var(--input-border-radius, 6px) 0 0;
+}
+
+.autocomplete-wrapper .form-input:focus + .client-dropdown {
+  border-color: var(--primary-color, #3b82f6);
 }
 </style>

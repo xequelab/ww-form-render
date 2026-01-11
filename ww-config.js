@@ -85,6 +85,38 @@ export default {
       defaultValue: false,
       bindable: true
     },
+    mode: {
+      label: {
+        en: 'Mode',
+        pt: 'Modo'
+      },
+      type: 'TextSelect',
+      section: 'settings',
+      options: {
+        options: [
+          { value: 'public', label: { en: 'Public', pt: 'Público' } },
+          { value: 'private', label: { en: 'Private/Internal', pt: 'Privado/Interno' } }
+        ]
+      },
+      defaultValue: 'public'
+    },
+    clientsCollection: {
+      label: {
+        en: 'Clients Collection',
+        pt: 'Coleção de Clientes'
+      },
+      type: 'Info',
+      section: 'settings',
+      bindable: true,
+      defaultValue: [],
+      hidden: (content) => content.mode !== 'private',
+      options: {
+        text: {
+          en: 'Connect the clients collection from Supabase',
+          pt: 'Conecte a coleção de clientes do Supabase'
+        }
+      }
+    },
     // Design Customization Section
     primaryColor: {
       label: {
@@ -382,6 +414,26 @@ export default {
       },
       type: 'object',
       defaultValue: {},
+      readonly: true
+    },
+    {
+      name: 'selectedClientId',
+      label: {
+        en: 'Selected Client ID',
+        pt: 'ID do Cliente Selecionado'
+      },
+      type: 'string',
+      defaultValue: null,
+      readonly: true
+    },
+    {
+      name: 'formDataWithLabels',
+      label: {
+        en: 'Form Data With Labels',
+        pt: 'Dados do Formulário com Rótulos'
+      },
+      type: 'array',
+      defaultValue: [],
       readonly: true
     }
   ]
