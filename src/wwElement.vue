@@ -12,6 +12,46 @@
       <span>Formulário enviado com sucesso!</span>
     </div>
 
+    <!-- Duplicate Client Modal -->
+    <div v-if="showDuplicateModal" class="modal-overlay" @click="closeDuplicateModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Cliente já cadastrado</h3>
+          <button class="modal-close" @click="closeDuplicateModal" type="button">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-message">Encontramos um cliente com este email ou telefone já cadastrado:</p>
+          <div v-if="duplicateClient" class="duplicate-info">
+            <div class="duplicate-field">
+              <span class="duplicate-label">Nome:</span>
+              <span class="duplicate-value">{{ duplicateClient.nome }}</span>
+            </div>
+            <div class="duplicate-field">
+              <span class="duplicate-label">Email:</span>
+              <span class="duplicate-value">{{ duplicateClient.email }}</span>
+            </div>
+            <div class="duplicate-field">
+              <span class="duplicate-label">Telefone:</span>
+              <span class="duplicate-value">{{ formatPhoneNumber(duplicateClient.telefone) }}</span>
+            </div>
+          </div>
+          <p class="modal-question">O que deseja fazer?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-button modal-button-primary" @click="useExistingClient" type="button">
+            Usar cliente existente
+          </button>
+          <button class="modal-button modal-button-secondary" @click="createNewClient" type="button">
+            Criar novo cliente
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Form Fields -->
     <form @submit.prevent="handleSubmit" novalidate>
       <div
@@ -371,7 +411,10 @@ export default {
       selectedClientId: null,
       filteredClients: [],
       showClientDropdown: false,
-      isClientFieldsDisabled: false
+      isClientFieldsDisabled: false,
+      showDuplicateModal: false,
+      duplicateClient: null,
+      allowDuplicateSubmit: false
     }
   },
   setup(props) {
@@ -713,6 +756,19 @@ export default {
         return
       }
 
+      // Check for duplicate client (only in private mode)
+      if (this.isPrivateMode && !this.allowDuplicateSubmit) {
+        const duplicate = this.findDuplicateClient()
+        if (duplicate) {
+          this.duplicateClient = duplicate
+          this.showDuplicateModal = true
+          return
+        }
+      }
+
+      // Reset duplicate flag
+      this.allowDuplicateSubmit = false
+
       this.isSubmitting = true
 
       // Simulate async submission (remove this in production)
@@ -833,11 +889,19 @@ export default {
       if (firstField) {
         const nomeKey = this.getFieldKey(firstField)
         this.formData[nomeKey] = client.nome || ''
+        // Clear error for nome field
+        const newErrors = { ...this.errors }
+        delete newErrors[nomeKey]
+        this.errors = newErrors
       }
 
       if (secondField) {
         const emailKey = this.getFieldKey(secondField)
         this.formData[emailKey] = client.email || ''
+        // Clear error for email field
+        const newErrors = { ...this.errors }
+        delete newErrors[emailKey]
+        this.errors = newErrors
       }
 
       if (thirdField) {
@@ -845,6 +909,10 @@ export default {
         // Apply phone mask
         const telefone = (client.telefone || '').toString()
         this.formData[telefoneKey] = this.formatPhoneNumber(telefone)
+        // Clear error for telefone field
+        const newErrors = { ...this.errors }
+        delete newErrors[telefoneKey]
+        this.errors = newErrors
       }
 
       this.selectedClientId = client.id
@@ -905,6 +973,68 @@ export default {
       this.isClientFieldsDisabled = false
       this.showClientDropdown = false
       this.filteredClients = []
+    },
+
+    findDuplicateClient() {
+      if (!this.isPrivateMode || this.selectedClientId) return null
+
+      const firstField = this.fields[0]
+      const secondField = this.fields[1]
+      const thirdField = this.fields[2]
+
+      if (!firstField || !secondField || !thirdField) return null
+
+      const emailKey = this.getFieldKey(secondField)
+      const telefoneKey = this.getFieldKey(thirdField)
+
+      const email = this.formData[emailKey]
+      const telefone = this.formData[telefoneKey]
+
+      if (!email && !telefone) return null
+
+      // Find client by email OR phone
+      const duplicate = this.clientsCollection.find(client => {
+        const emailMatch = email && client.email &&
+                          client.email.toLowerCase().trim() === email.toLowerCase().trim()
+
+        const cleanPhone = (phone) => phone ? phone.toString().replace(/\D/g, '') : ''
+        const phoneMatch = telefone && client.telefone &&
+                          cleanPhone(client.telefone) === cleanPhone(telefone)
+
+        return emailMatch || phoneMatch
+      })
+
+      return duplicate || null
+    },
+
+    useExistingClient() {
+      if (this.duplicateClient) {
+        this.selectClient(this.duplicateClient)
+        this.showDuplicateModal = false
+        this.duplicateClient = null
+
+        // Re-submit after selecting
+        setTimeout(() => {
+          this.handleSubmit()
+        }, 100)
+      }
+    },
+
+    createNewClient() {
+      this.allowDuplicateSubmit = true
+      this.showDuplicateModal = false
+      this.duplicateClient = null
+
+      // Re-submit allowing duplicate
+      setTimeout(() => {
+        this.handleSubmit()
+      }, 100)
+    },
+
+    closeDuplicateModal() {
+      this.showDuplicateModal = false
+      this.duplicateClient = null
+      this.allowDuplicateSubmit = false
     }
   }
 }
@@ -1512,5 +1642,195 @@ export default {
 
 .autocomplete-wrapper .form-input:focus + .client-dropdown {
   border-color: var(--primary-color, #3b82f6);
+}
+
+/* Duplicate Client Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-message {
+  font-size: 0.9375rem;
+  color: #4b5563;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.modal-question {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 1.5rem 0 0 0;
+}
+
+.duplicate-info {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.duplicate-field {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.duplicate-field:last-child {
+  margin-bottom: 0;
+}
+
+.duplicate-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 70px;
+}
+
+.duplicate-value {
+  font-size: 0.9375rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  flex-direction: column;
+}
+
+.modal-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.modal-button-primary {
+  background-color: var(--primary-color, #3b82f6);
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.modal-button-primary:hover {
+  background-color: color-mix(in srgb, var(--primary-color, #3b82f6) 85%, black);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.modal-button-secondary {
+  background-color: white;
+  color: #374151;
+  border: 1.5px solid #d1d5db;
+}
+
+.modal-button-secondary:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.modal-button:active {
+  transform: translateY(0);
+}
+
+/* Responsive - Desktop */
+@media (min-width: 640px) {
+  .modal-footer {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .modal-button {
+    width: auto;
+    min-width: 150px;
+  }
 }
 </style>
