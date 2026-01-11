@@ -749,28 +749,21 @@ export default {
     },
 
     async handleSubmit() {
-      console.log('📝 handleSubmit called')
       const validation = await this.validate()
 
       if (!validation.isValid) {
-        console.log('❌ Validation failed', validation.errors)
         this.$emit('validationError', { errors: validation.errors })
         return
       }
 
-      console.log('✅ Validation passed')
-
       // Check for duplicate client (only in private mode)
       if (this.isPrivateMode && !this.allowDuplicateSubmit) {
-        console.log('🔍 Checking for duplicates...')
         const duplicate = this.findDuplicateClient()
         if (duplicate) {
-          console.log('⚠️ Duplicate found! Showing modal')
           this.duplicateClient = duplicate
           this.showDuplicateModal = true
           return
         }
-        console.log('✅ No duplicate found')
       }
 
       // Reset duplicate flag
@@ -829,14 +822,28 @@ export default {
       if (!field.mask) return
 
       const fieldKey = this.getFieldKey(field)
-      let value = this.formData[fieldKey].replace(/\D/g, '')
+      let value = this.formData[fieldKey] || ''
 
-      // Apply Brazilian phone mask (99) 99999-9999
+      // Remove all non-digits
+      let cleaned = value.replace(/\D/g, '')
+
+      // Limit to 11 digits (BR phone format)
+      cleaned = cleaned.substring(0, 11)
+
+      // Apply Brazilian phone mask (99) 99999-9999 or (99) 9999-9999
       if (field.country === 'BR' || field.mask === '(99) 99999-9999') {
-        if (value.length <= 11) {
-          value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3')
-          value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3')
-          value = value.replace(/^(\d{2})(\d{0,5})/, '($1) $2')
+        if (cleaned.length === 0) {
+          value = ''
+        } else if (cleaned.length <= 2) {
+          value = `(${cleaned}`
+        } else if (cleaned.length <= 6) {
+          value = `(${cleaned.substring(0, 2)}) ${cleaned.substring(2)}`
+        } else if (cleaned.length <= 10) {
+          // Old format: (99) 9999-9999
+          value = `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6)}`
+        } else {
+          // New format: (99) 99999-9999
+          value = `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 7)}-${cleaned.substring(7, 11)}`
         }
       }
 
@@ -983,21 +990,13 @@ export default {
     },
 
     findDuplicateClient() {
-      console.log('🔍 findDuplicateClient called')
-      console.log('isPrivateMode:', this.isPrivateMode)
-      console.log('selectedClientId:', this.selectedClientId)
-      console.log('clientsCollection:', this.clientsCollection)
-
       if (!this.isPrivateMode || this.selectedClientId) return null
 
       const firstField = this.fields[0]
       const secondField = this.fields[1]
       const thirdField = this.fields[2]
 
-      if (!firstField || !secondField || !thirdField) {
-        console.log('❌ Missing fields')
-        return null
-      }
+      if (!firstField || !secondField || !thirdField) return null
 
       const emailKey = this.getFieldKey(secondField)
       const telefoneKey = this.getFieldKey(thirdField)
@@ -1005,13 +1004,7 @@ export default {
       const email = this.formData[emailKey]
       const telefone = this.formData[telefoneKey]
 
-      console.log('Email key:', emailKey, '= ', email)
-      console.log('Telefone key:', telefoneKey, '= ', telefone)
-
-      if (!email && !telefone) {
-        console.log('❌ No email or phone')
-        return null
-      }
+      if (!email && !telefone) return null
 
       // Find client by email OR phone
       const duplicate = this.clientsCollection.find(client => {
@@ -1022,12 +1015,9 @@ export default {
         const phoneMatch = telefone && client.telefone &&
                           cleanPhone(client.telefone) === cleanPhone(telefone)
 
-        console.log('Checking client:', client.nome, '| Email match:', emailMatch, '| Phone match:', phoneMatch)
-
         return emailMatch || phoneMatch
       })
 
-      console.log('Duplicate found:', duplicate)
       return duplicate || null
     },
 
