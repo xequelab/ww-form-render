@@ -749,21 +749,28 @@ export default {
     },
 
     async handleSubmit() {
+      console.log('📝 handleSubmit called')
       const validation = await this.validate()
 
       if (!validation.isValid) {
+        console.log('❌ Validation failed', validation.errors)
         this.$emit('validationError', { errors: validation.errors })
         return
       }
 
+      console.log('✅ Validation passed')
+
       // Check for duplicate client (only in private mode)
       if (this.isPrivateMode && !this.allowDuplicateSubmit) {
+        console.log('🔍 Checking for duplicates...')
         const duplicate = this.findDuplicateClient()
         if (duplicate) {
+          console.log('⚠️ Duplicate found! Showing modal')
           this.duplicateClient = duplicate
           this.showDuplicateModal = true
           return
         }
+        console.log('✅ No duplicate found')
       }
 
       // Reset duplicate flag
@@ -976,13 +983,21 @@ export default {
     },
 
     findDuplicateClient() {
+      console.log('🔍 findDuplicateClient called')
+      console.log('isPrivateMode:', this.isPrivateMode)
+      console.log('selectedClientId:', this.selectedClientId)
+      console.log('clientsCollection:', this.clientsCollection)
+
       if (!this.isPrivateMode || this.selectedClientId) return null
 
       const firstField = this.fields[0]
       const secondField = this.fields[1]
       const thirdField = this.fields[2]
 
-      if (!firstField || !secondField || !thirdField) return null
+      if (!firstField || !secondField || !thirdField) {
+        console.log('❌ Missing fields')
+        return null
+      }
 
       const emailKey = this.getFieldKey(secondField)
       const telefoneKey = this.getFieldKey(thirdField)
@@ -990,7 +1005,13 @@ export default {
       const email = this.formData[emailKey]
       const telefone = this.formData[telefoneKey]
 
-      if (!email && !telefone) return null
+      console.log('Email key:', emailKey, '= ', email)
+      console.log('Telefone key:', telefoneKey, '= ', telefone)
+
+      if (!email && !telefone) {
+        console.log('❌ No email or phone')
+        return null
+      }
 
       // Find client by email OR phone
       const duplicate = this.clientsCollection.find(client => {
@@ -1001,9 +1022,12 @@ export default {
         const phoneMatch = telefone && client.telefone &&
                           cleanPhone(client.telefone) === cleanPhone(telefone)
 
+        console.log('Checking client:', client.nome, '| Email match:', emailMatch, '| Phone match:', phoneMatch)
+
         return emailMatch || phoneMatch
       })
 
+      console.log('Duplicate found:', duplicate)
       return duplicate || null
     },
 
