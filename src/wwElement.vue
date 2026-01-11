@@ -77,7 +77,6 @@
           :placeholder="field.placeholder"
           :maxlength="field.maxLength"
           :disabled="disabled"
-          @blur="validateField(field)"
         ></textarea>
 
         <!-- Number Input -->
@@ -93,7 +92,6 @@
           :max="field.max"
           :step="field.step"
           :disabled="disabled"
-          @blur="validateField(field)"
         />
 
         <!-- Email Input -->
@@ -107,7 +105,6 @@
           :placeholder="field.placeholder"
           :maxlength="field.maxLength"
           :disabled="isClientFieldDisabled(field)"
-          @blur="validateField(field)"
         />
 
         <!-- Select Dropdown -->
@@ -118,7 +115,6 @@
           class="form-select"
           :class="{ error: errors[getFieldKey(field)] }"
           :disabled="disabled"
-          @blur="validateField(field)"
         >
           <option value="" disabled>{{ field.placeholder || 'Selecione uma opção' }}</option>
           <option v-for="option in field.options" :key="option.value" :value="option.value">
@@ -134,7 +130,6 @@
             type="checkbox"
             class="form-checkbox"
             :disabled="disabled"
-            @change="validateField(field)"
           />
           <label :for="getFieldKey(field)" class="form-checkbox-label">
             {{ field.placeholder || 'Marcar' }}
@@ -156,7 +151,6 @@
               :value="option.value"
               class="form-radio"
               :disabled="disabled"
-              @change="validateField(field)"
             />
             <label :for="`${getFieldKey(field)}-${option.value}`" class="form-radio-label">
               {{ option.label }}
@@ -173,7 +167,6 @@
           class="form-input"
           :class="{ error: errors[getFieldKey(field)] }"
           :disabled="disabled"
-          @blur="validateField(field)"
         />
 
         <!-- Phone Input -->
@@ -186,7 +179,6 @@
           :class="{ error: errors[getFieldKey(field)] }"
           :placeholder="field.placeholder || field.mask"
           :disabled="isClientFieldDisabled(field)"
-          @blur="validateField(field)"
           @input="applyPhoneMask(field)"
         />
 
@@ -199,7 +191,6 @@
               type="checkbox"
               class="toggle-input"
               :disabled="disabled"
-              @change="validateField(field)"
             />
             <span class="toggle-slider"></span>
           </label>
@@ -219,7 +210,6 @@
             :max="field.max || 100"
             :step="field.step || 1"
             :disabled="disabled"
-            @input="validateField(field)"
           />
           <div class="slider-value">
             {{ formData[getFieldKey(field)] }}{{ field.unit || '' }}
@@ -326,7 +316,6 @@
               type="checkbox"
               class="form-checkbox"
               :disabled="disabled"
-              @change="validateField(field)"
             />
             <span class="consent-text" v-html="formatConsentText(field)"></span>
           </label>
@@ -908,8 +897,6 @@ export default {
       setTimeout(() => {
         this.showClientDropdown = false
       }, 200)
-
-      this.validateField(field)
     },
 
     clearClientSelection() {
