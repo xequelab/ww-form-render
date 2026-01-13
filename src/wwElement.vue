@@ -549,7 +549,12 @@ export default {
       handler() {
         this.initializeFormData()
       },
-      immediate: true,
+      immediate: true
+    },
+    formData: {
+      handler() {
+        this.updateExposedVariables()
+      },
       deep: true
     }
   },
