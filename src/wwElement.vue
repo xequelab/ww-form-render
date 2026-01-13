@@ -663,13 +663,33 @@ export default {
       const isValid = Object.keys(this.errors).length === 0 &&
                       this.fields.length > 0 &&
                       this.fields.every(field => {
+                        const fieldKey = this.getFieldKey(field)
+                        const value = this.formData[fieldKey]
+
+                        // Check required fields
                         if (field.required) {
-                          const fieldKey = this.getFieldKey(field)
-                          const value = this.formData[fieldKey]
-                          if (field.type === 'checkbox') return value === true
-                          if (field.type === 'number') return value !== null && value !== '' && !isNaN(value)
-                          return value && value.toString().trim() !== ''
+                          if (field.type === 'checkbox') {
+                            if (value !== true) return false
+                          } else if (field.type === 'number') {
+                            if (value === null || value === '' || isNaN(value)) return false
+                          } else {
+                            if (!value || value.toString().trim() === '') return false
+                          }
                         }
+
+                        // Validate email format
+                        if (field.type === 'email' && value) {
+                          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+                          if (!emailRegex.test(value)) return false
+                        }
+
+                        // Validate phone format (if it has a mask requirement)
+                        if (field.type === 'phone' && field.mask && value) {
+                          // Check if phone has minimum required length
+                          const digitsOnly = value.replace(/\D/g, '')
+                          if (digitsOnly.length < 10) return false
+                        }
+
                         return true
                       })
 
